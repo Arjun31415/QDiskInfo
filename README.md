@@ -26,6 +26,10 @@ Arch Linux (includes Manjaro, EndeavourOS. CachyOS, Garuda Linux, etc.)
 ```sh
 sudo pacman -Syu base-devel cmake hicolor-icon-theme polkit qt6-base qt6-svg smartmontools
 ```
+Fedora and derivatives (Nobara Project, etc.)
+```
+sudo dnf install cmake git mesa-libGL-devel libxkbcommon-devel qt6-qtbase-devel qt6-qtwayland-devel smartmontools
+```
 ### Compilation Steps
 First you will need to clone the repository and cd inside
 ```sh
