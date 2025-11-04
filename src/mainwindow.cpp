@@ -1451,7 +1451,7 @@ void MainWindow::on_actionSave_Image_triggered()
     screenshot.save(QFileDialog::getSaveFileName(this, tr("Save Image"), "QDiskInfo_" + deviceNodeLineEdit->text().section('/', -1) + ".png", tr("PNG Files (*.png)")));
 }
 
-QString MainWindow::getMbToPrettyString(const int64_t &sizeInMbI64, const int &precisionInt, const bool &useGbBool)
+QString MainWindow::getMbToPrettyString(const int64_t &sizeInMbI64, const int &precisionInt, const bool &useGbBool) const
 {
     if (!sizeInMbI64)
         return "----";

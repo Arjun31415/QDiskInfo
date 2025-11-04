@@ -101,5 +101,5 @@ private:
     QString gbSymbol;
     QString tbSymbol;
     QString pbSymbol;
-    QString getMbToPrettyString(const int64_t &sizeInMbI64, const int &precisionInt, const bool &useGbBool);
+    QString getMbToPrettyString(const int64_t &sizeInMbI64, const int &precisionInt, const bool &useGbBool) const;
 };
