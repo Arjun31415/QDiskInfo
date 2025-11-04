@@ -13,6 +13,9 @@
 #include <QTextEdit>
 #include <QDialogButtonBox>
 
+const int PRECISION_TOTALS_TO_STR = 2;
+const int PRECISION_CAPACITY_TO_STR = 0;
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -252,7 +255,7 @@ void MainWindow::updateUI(const QString &currentDeviceName)
         double diskCapacityMB = localObj.value("user_capacity").toObject().value("bytes").toDouble() / 1e6;
         int64_t diskCapacityMbI64 = static_cast<int64_t>(diskCapacityMB);
         bool useGB = ui->actionUse_GB_instead_of_TB->isChecked();
-        QString diskCapacityString = getMbToPrettyString(diskCapacityMbI64, 0, useGB);
+        QString diskCapacityString = getMbToPrettyString(diskCapacityMbI64, PRECISION_CAPACITY_TO_STR, useGB);
 
         QJsonObject temperatureObj = localObj["temperature"].toObject();
         int temperatureInt = temperatureObj["current"].toInt();
@@ -446,7 +449,7 @@ void MainWindow::populateWindow(const QJsonObject &localObj, const QString &heal
     int64_t totalMbReadsI64 = 0;
     bool useGB = ui->actionUse_GB_instead_of_TB->isChecked();
 
-    QString diskCapacityString = getMbToPrettyString(diskCapacityMbI64, 0, useGB);
+    QString diskCapacityString = getMbToPrettyString(diskCapacityMbI64, PRECISION_CAPACITY_TO_STR, useGB);
 
     QString totalReads;
     QString totalWrites;
@@ -685,8 +688,8 @@ void MainWindow::populateWindow(const QJsonObject &localObj, const QString &heal
         }
     }
 
-    totalReads = getMbToPrettyString(totalMbReadsI64, 1, useGB);
-    totalWrites = getMbToPrettyString(totalMbWritesI64, 1, useGB);
+    totalReads = getMbToPrettyString(totalMbReadsI64, PRECISION_TOTALS_TO_STR, useGB);
+    totalWrites = getMbToPrettyString(totalMbWritesI64, PRECISION_TOTALS_TO_STR, useGB);
 
     totalReadsLineEdit->setText(totalReads);
     totalReadsLineEdit->setAlignment(Qt::AlignRight);
