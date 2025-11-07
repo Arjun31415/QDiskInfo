@@ -607,10 +607,6 @@ void MainWindow::populateWindow(const QJsonObject &localObj, const QString &heal
                 } else if (attrObj["name"] == "Host_Writes_32MiB") {
                     double megabytes = (attrObj["raw"].toObject()["value"].toInt() * 32 * 1024.0 * 1024.0) / 1e6;
                     totalMbWritesI64 = static_cast<int64_t>(megabytes);
-                } else if (attrObj["name"] == "Total_LBAs_Written") {
-                    qlonglong lbaWritten = attrObj["raw"].toObject()["value"].toVariant().toLongLong();
-                    double megabytes = double(lbaWritten * logicalBlockSize) / 1e6;
-                    totalMbWritesI64 = static_cast<int64_t>(megabytes);
                 } else if (attrObj["name"] == "Host_Writes_GiB" || attrObj["name"] == "Lifetime_Writes_GiB") {
                     double gibibytes = attrObj["raw"].toObject()["value"].toDouble();
                     double bytesPerGiB = static_cast<double>(1ULL << 30);
@@ -618,6 +614,17 @@ void MainWindow::populateWindow(const QJsonObject &localObj, const QString &heal
                     double conversionFactor = bytesPerGiB / bytesPerMB;
                     double megabytes = gibibytes * conversionFactor;
                     totalMbWritesI64 = static_cast<int64_t>(megabytes);
+                } else if (attrObj["name"] == "Total_LBAs_Written") {
+                    qlonglong lbaWritten = attrObj["raw"].toObject()["value"].toVariant().toLongLong();
+                    double megabytes = double(logicalBlockSize * lbaWritten) / 1e6;
+                    totalMbWritesI64 = static_cast<int64_t>(megabytes);
+                    // workaround: for drives that report different value with bad attribute name
+                    // Check if total MB writes are less than power on hours
+                    if (totalMbWritesI64 / powerOnTimeInt == 0) {
+                        // Assume it's 32MiB chunks reported as LBAs
+                        megabytes = (double(lbaWritten * 32) * 1024.0 * 1024.0) / 1e6;
+                        totalMbWritesI64 = static_cast<int64_t>(megabytes);
+                    }
                 }
             } else if (attrObj["id"] == 242) {
                 if (attrObj["name"] == "Total_Reads_GB") {
@@ -626,10 +633,6 @@ void MainWindow::populateWindow(const QJsonObject &localObj, const QString &heal
                 } else if (attrObj["name"] == "Host_Reads_32MiB") {
                     double megabytes = (attrObj["raw"].toObject()["value"].toInt() * 32 * 1024 * 1024) / 1e6;
                     totalMbReadsI64 = static_cast<int64_t>(megabytes);
-                } else if (attrObj["name"] == "Total_LBAs_Read") {
-                    qlonglong lbaRead = attrObj["raw"].toObject()["value"].toVariant().toLongLong();
-                    double megabytes = double(lbaRead * logicalBlockSize) / 1e6;
-                    totalMbReadsI64 = static_cast<int64_t>(megabytes);
                 } else if (attrObj["name"] == "Host_Reads_GiB" || attrObj["name"] == "Lifetime_Reads_GiB") {
                     double gibibytes = attrObj["raw"].toObject()["value"].toDouble();
                     double bytesPerGiB = static_cast<double>(1ULL << 30);
@@ -637,6 +640,17 @@ void MainWindow::populateWindow(const QJsonObject &localObj, const QString &heal
                     double conversionFactor = bytesPerGiB / bytesPerMB;
                     double megabytes = gibibytes * conversionFactor;
                     totalMbReadsI64 = static_cast<int64_t>(megabytes);
+                } else if (attrObj["name"] == "Total_LBAs_Read") {
+                    qlonglong lbaRead = attrObj["raw"].toObject()["value"].toVariant().toLongLong();
+                    double megabytes = double(logicalBlockSize * lbaRead) / 1e6;
+                    totalMbReadsI64 = static_cast<int64_t>(megabytes);
+                    // workaround for drives that report different value with bad attribute name
+                    // Check if total MB reads are less than power on hours
+                    if (totalMbReadsI64 / powerOnTimeInt == 0) {
+                        // Assume it's 32MiB chunks reported as LBAs
+                        megabytes = (double(lbaRead * 32) * 1024.0 * 1024.0) / 1e6;
+                        totalMbReadsI64 = static_cast<int64_t>(megabytes);
+                    }
                 }
             } else if (attrObj["id"] == 246) { // MX500
                 if (attrObj["name"] == "Total_LBAs_Written") {
