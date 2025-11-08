@@ -672,6 +672,42 @@ void MainWindow::populateWindow(const QJsonObject &localObj, const QString &heal
                 }
             }
         }
+
+		// Some devices don't report or report incorrect reads/writes in legacy
+		// attributes, so we look for that data in ata_device_statistics.
+		// We do this after parsing through the legacy attributes
+		// to override possibly incorrect calculations.
+		QJsonObject ata_device_statistics = localObj["ata_device_statistics"].toObject();
+		if (!ata_device_statistics.empty())
+		{
+			QJsonArray pages = ata_device_statistics["pages"].toArray();
+			for (const QJsonValue &pageval : std::as_const(pages))
+			{
+				QJsonObject page = pageval.toObject();
+				if (page["name"] == "General Statistics")
+				{
+					QJsonArray general_statistics = page["table"].toArray();
+					for (const QJsonValue &stat : std::as_const(general_statistics))
+					{
+						QJsonObject statObj = stat.toObject();
+						QString key = statObj["name"].toString();
+						QJsonValue value = statObj["value"];
+						
+						if (key == "Logical Sectors Read") {
+							double logicalSectorsRead = value.toDouble();
+							double megabytes = logicalSectorsRead * logicalBlockSize / 1e6;
+							totalMbReadsI64 = static_cast<int64_t>(megabytes);
+						} else if (key == "Logical Sectors Written") {
+							double logicalSectorsWritten = value.toDouble();
+							double megabytes = logicalSectorsWritten * logicalBlockSize / 1e6;
+							totalMbWritesI64 = static_cast<int64_t>(megabytes);
+						}
+					}
+					break; // no need looking into other pages
+				}
+			}
+		}
+		
         if (percentage.isEmpty() && rotationRate == "---- (SSD)") { // Workaround for some drives which have this and another attribute
             for (const QJsonValue &attr : std::as_const(attributes)) {
                 QJsonObject attrObj = attr.toObject();
