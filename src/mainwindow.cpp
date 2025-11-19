@@ -13,11 +13,15 @@
 #include <QTextEdit>
 #include <QDialogButtonBox>
 
+const int PRECISION_TOTALS_TO_STR = 2;
+const int PRECISION_CAPACITY_TO_STR = 0;
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , settings("qdiskinfo", "qdiskinfo")
     , initializing(true)
+    , mbSymbol("MB"), gbSymbol("GB"), tbSymbol("TB"), pbSymbol("PB")
 {
     ui->setupUi(this);
 
@@ -145,6 +149,11 @@ MainWindow::MainWindow(QWidget *parent)
         delete temperatureValueHorizontal;
         delete healthStatusValueHorizontal;
     }
+
+    mbSymbol = locale.formattedDataSize(1 << 20, 1, QLocale::DataSizeTraditionalFormat).split(' ')[1];
+    gbSymbol = locale.formattedDataSize(1 << 30, 1, QLocale::DataSizeTraditionalFormat).split(' ')[1];
+    tbSymbol = locale.formattedDataSize(qint64(1) << 40, 1, QLocale::DataSizeTraditionalFormat).split(' ')[1];
+    pbSymbol = locale.formattedDataSize(qint64(1) << 50, 1, QLocale::DataSizeTraditionalFormat).split(' ')[1];
 }
 
 MainWindow::~MainWindow()
@@ -184,6 +193,11 @@ void MainWindow::updateNavigationButtons(qsizetype currentIndex)
 
 void MainWindow::updateUI(const QString &currentDeviceName)
 {
+    mbSymbol = locale.formattedDataSize(1 << 20, 1, QLocale::DataSizeTraditionalFormat).split(' ')[1];
+    gbSymbol = locale.formattedDataSize(1 << 30, 1, QLocale::DataSizeTraditionalFormat).split(' ')[1];
+    tbSymbol = locale.formattedDataSize(qint64(1) << 40, 1, QLocale::DataSizeTraditionalFormat).split(' ')[1];
+    pbSymbol = locale.formattedDataSize(qint64(1) << 50, 1, QLocale::DataSizeTraditionalFormat).split(' ')[1];
+
     QVector<DiskItem> diskItems;
 
     bool firstTime = true;
@@ -238,17 +252,10 @@ void MainWindow::updateUI(const QString &currentDeviceName)
         QString health;
         QColor healthColor;
 
-        double diskCapacityGB = localObj.value("user_capacity").toObject().value("bytes").toDouble() / 1e9;
-        QString gbSymbol = locale.formattedDataSize(1 << 30, 1, QLocale::DataSizeTraditionalFormat).split(' ')[1];
-        QString tbSymbol = locale.formattedDataSize(qint64(1) << 40, 1, QLocale::DataSizeTraditionalFormat).split(' ')[1];
-        QString diskCapacityString;
-        int diskCapacityGbInt = static_cast<int>(diskCapacityGB);
+        double diskCapacityMB = localObj.value("user_capacity").toObject().value("bytes").toDouble() / 1e6;
+        int64_t diskCapacityMbI64 = static_cast<int64_t>(diskCapacityMB);
         bool useGB = ui->actionUse_GB_instead_of_TB->isChecked();
-        if (diskCapacityGbInt < 1000 || useGB) {
-            diskCapacityString = locale.toString(diskCapacityGB, 'f', 1) + " " + gbSymbol;
-        } else {
-            diskCapacityString = QString::number(diskCapacityGbInt/1000) + " " + tbSymbol;
-        }
+        QString diskCapacityString = getMbToPrettyString(diskCapacityMbI64, PRECISION_CAPACITY_TO_STR, useGB);
 
         QJsonObject temperatureObj = localObj["temperature"].toObject();
         int temperatureInt = temperatureObj["current"].toInt();
@@ -433,23 +440,16 @@ void MainWindow::populateWindow(const QJsonObject &localObj, const QString &heal
     QJsonObject nvmeLog = localObj["nvme_smart_health_information_log"].toObject();
     QString modelName = localObj["model_name"].toString();
     QString firmwareVersion = localObj["firmware_version"].toString("----");
-    double diskCapacityGB = localObj.value("user_capacity").toObject().value("bytes").toDouble() / 1e9;
-    int diskCapacityGbInt = static_cast<int>(diskCapacityGB);
+    double diskCapacityMB = localObj.value("user_capacity").toObject().value("bytes").toDouble() / 1e6;
+    int64_t diskCapacityMbI64 = static_cast<int64_t>(diskCapacityMB);
     int powerCycleCountInt = localObj["power_cycle_count"].toInt(-1);
     QJsonObject temperatureObj = localObj["temperature"].toObject();
     int temperatureInt = temperatureObj["current"].toInt();
-    int totalWritesInt = 0;
-    int totalReadsInt = 0;
+    int64_t totalMbWritesI64 = 0;
+    int64_t totalMbReadsI64 = 0;
     bool useGB = ui->actionUse_GB_instead_of_TB->isChecked();
 
-    QString gbSymbol = locale.formattedDataSize(1 << 30, 1, QLocale::DataSizeTraditionalFormat).split(' ')[1];
-    QString tbSymbol = locale.formattedDataSize(qint64(1) << 40, 1, QLocale::DataSizeTraditionalFormat).split(' ')[1];
-    QString diskCapacityString;
-    if (diskCapacityGbInt < 1000 || useGB) {
-        diskCapacityString = locale.toString(diskCapacityGB, 'f', 1) + " " + gbSymbol;
-    } else {
-        diskCapacityString = QString::number(diskCapacityGbInt/1000) + " " + tbSymbol;
-    }
+    QString diskCapacityString = getMbToPrettyString(diskCapacityMbI64, PRECISION_CAPACITY_TO_STR, useGB);
 
     QString totalReads;
     QString totalWrites;
@@ -474,8 +474,8 @@ void MainWindow::populateWindow(const QJsonObject &localObj, const QString &heal
         modelName = localObj["scsi_model_name"].toString();
         powerCycleCountInt = localObj["scsi_start_stop_cycle_counter"].toObject().value("accumulated_load_unload_cycles").toInt();
         firmwareVersion = localObj["scsi_revision"].toString("----");
-        totalReadsInt = scsiErrorCounterLog.value("read").toObject().value("gigabytes_processed").toString().split(",").first().toInt();
-        totalWritesInt = scsiErrorCounterLog.value("write").toObject().value("gigabytes_processed").toString().split(",").first().toInt();
+        totalMbReadsI64 = scsiErrorCounterLog.value("read").toObject().value("gigabytes_processed").toString().split(",").first().toInt() * 1000;
+        totalMbWritesI64 = scsiErrorCounterLog.value("write").toObject().value("gigabytes_processed").toString().split(",").first().toInt() * 1000;
     }
 
     bool nvmeHasSelfTest = false;
@@ -591,6 +591,7 @@ void MainWindow::populateWindow(const QJsonObject &localObj, const QString &heal
     powerOnHoursLineEdit->setText(powerOnTime);
     powerOnHoursLineEdit->setAlignment(Qt::AlignRight);
 
+    int logicalBlockSize = localObj["logical_block_size"].toInt();
     if (!isNvme) {
         for (const QJsonValue &attr : std::as_const(attributes)) {
             QJsonObject attrObj = attr.toObject();
@@ -602,57 +603,60 @@ void MainWindow::populateWindow(const QJsonObject &localObj, const QString &heal
             } else if (attrObj["id"] == 241) {
                 if (attrObj["name"] == "Total_Writes_GB") {
                     int gigabytes = attrObj["raw"].toObject()["value"].toInt();
-                    totalWritesInt = gigabytes;
+                    totalMbWritesI64 = gigabytes * 1000;
                 } else if (attrObj["name"] == "Host_Writes_32MiB") {
-                    double gigabytes = (attrObj["raw"].toObject()["value"].toInt() * 32 * 1024.0 * 1024.0) / 1e9;
-                    totalWritesInt = static_cast<int>(gigabytes);
-                } else if (attrObj["name"] == "Total_LBAs_Written") {
-                    int logicalBlockSize = localObj["logical_block_size"].toInt();
-                    qlonglong lbaWritten = attrObj["raw"].toObject()["value"].toVariant().toLongLong();
-                    qlonglong gigabytes = (lbaWritten * logicalBlockSize) / 1e9;
-                    int gigabytesInt = static_cast<int>(gigabytes);
-                    if (!gigabytesInt) {
-                        gigabytesInt = static_cast<int>(lbaWritten);
-                    }
-                    totalWritesInt = gigabytesInt;
+                    double megabytes = (attrObj["raw"].toObject()["value"].toInt() * 32 * 1024.0 * 1024.0) / 1e6;
+                    totalMbWritesI64 = static_cast<int64_t>(megabytes);
                 } else if (attrObj["name"] == "Host_Writes_GiB" || attrObj["name"] == "Lifetime_Writes_GiB") {
                     double gibibytes = attrObj["raw"].toObject()["value"].toDouble();
                     double bytesPerGiB = static_cast<double>(1ULL << 30);
-                    double bytesPerGB = 1e9;
-                    double conversionFactor = bytesPerGiB / bytesPerGB;
-                    double gigabytes = gibibytes * conversionFactor;
-                    totalWritesInt = static_cast<int>(gigabytes);
+                    double bytesPerMB = 1e6;
+                    double conversionFactor = bytesPerGiB / bytesPerMB;
+                    double megabytes = gibibytes * conversionFactor;
+                    totalMbWritesI64 = static_cast<int64_t>(megabytes);
+                } else if (attrObj["name"] == "Total_LBAs_Written") {
+                    qlonglong lbaWritten = attrObj["raw"].toObject()["value"].toVariant().toLongLong();
+                    double megabytes = double(logicalBlockSize * lbaWritten) / 1e6;
+                    totalMbWritesI64 = static_cast<int64_t>(megabytes);
+                    // workaround: for drives that report different value with bad attribute name
+                    // Check if total MB writes are less than power on hours
+                    if (totalMbWritesI64 / powerOnTimeInt == 0) {
+                        // Assume it's 32MiB chunks reported as LBAs
+                        megabytes = (double(lbaWritten * 32) * 1024.0 * 1024.0) / 1e6;
+                        totalMbWritesI64 = static_cast<int64_t>(megabytes);
+                    }
                 }
             } else if (attrObj["id"] == 242) {
                 if (attrObj["name"] == "Total_Reads_GB") {
                     int gigabytes = attrObj["raw"].toObject()["value"].toInt();
-                    totalReadsInt = gigabytes;
+                    totalMbReadsI64 = gigabytes * 1000;
                 } else if (attrObj["name"] == "Host_Reads_32MiB") {
-                    double gigabytes = (attrObj["raw"].toObject()["value"].toInt() * 32 * 1024.0 * 1024.0) / 1e9;
-                    totalReadsInt = static_cast<int>(gigabytes);
-                } else if (attrObj["name"] == "Total_LBAs_Read") {
-                    int logicalBlockSize = localObj["logical_block_size"].toInt();
-                    qlonglong lbaRead = attrObj["raw"].toObject()["value"].toVariant().toLongLong();
-                    qlonglong gigabytes = (lbaRead * logicalBlockSize) / 1e9;
-                    int gigabytesInt = static_cast<int>(gigabytes);
-                    if (!gigabytesInt) {
-                        gigabytesInt = static_cast<int>(lbaRead);
-                    }
-                    totalReadsInt = gigabytesInt;
+                    double megabytes = (attrObj["raw"].toObject()["value"].toInt() * 32 * 1024 * 1024) / 1e6;
+                    totalMbReadsI64 = static_cast<int64_t>(megabytes);
                 } else if (attrObj["name"] == "Host_Reads_GiB" || attrObj["name"] == "Lifetime_Reads_GiB") {
                     double gibibytes = attrObj["raw"].toObject()["value"].toDouble();
                     double bytesPerGiB = static_cast<double>(1ULL << 30);
-                    double bytesPerGB = 1e9;
-                    double conversionFactor = bytesPerGiB / bytesPerGB;
-                    double gigabytes = gibibytes * conversionFactor;
-                    totalReadsInt = static_cast<int>(gigabytes);
+                    double bytesPerMB = 1e6;
+                    double conversionFactor = bytesPerGiB / bytesPerMB;
+                    double megabytes = gibibytes * conversionFactor;
+                    totalMbReadsI64 = static_cast<int64_t>(megabytes);
+                } else if (attrObj["name"] == "Total_LBAs_Read") {
+                    qlonglong lbaRead = attrObj["raw"].toObject()["value"].toVariant().toLongLong();
+                    double megabytes = double(logicalBlockSize * lbaRead) / 1e6;
+                    totalMbReadsI64 = static_cast<int64_t>(megabytes);
+                    // workaround for drives that report different value with bad attribute name
+                    // Check if total MB reads are less than power on hours
+                    if (totalMbReadsI64 / powerOnTimeInt == 0) {
+                        // Assume it's 32MiB chunks reported as LBAs
+                        megabytes = (double(lbaRead * 32) * 1024.0 * 1024.0) / 1e6;
+                        totalMbReadsI64 = static_cast<int64_t>(megabytes);
+                    }
                 }
             } else if (attrObj["id"] == 246) { // MX500
                 if (attrObj["name"] == "Total_LBAs_Written") {
-                    int logicalBlockSize = localObj["logical_block_size"].toInt();
                     qlonglong lbaWritten = attrObj["raw"].toObject()["value"].toVariant().toLongLong();
-                    qlonglong gigabytes = (lbaWritten * logicalBlockSize) / 1e9;
-                    totalWritesInt = static_cast<int>(gigabytes);
+                    double megabytes = double(lbaWritten * logicalBlockSize) / 1e6;
+                    totalMbWritesI64 = static_cast<int64_t>(megabytes);
                 }
             } else if (attrObj["name"] == "Remaining_Lifetime_Perc") {
                 int percentageUsed = attrObj["raw"].toObject()["value"].toInt();
@@ -668,6 +672,42 @@ void MainWindow::populateWindow(const QJsonObject &localObj, const QString &heal
                 }
             }
         }
+
+		// Some devices don't report or report incorrect reads/writes in legacy
+		// attributes, so we look for that data in ata_device_statistics.
+		// We do this after parsing through the legacy attributes
+		// to override possibly incorrect calculations.
+		QJsonObject ata_device_statistics = localObj["ata_device_statistics"].toObject();
+		if (!ata_device_statistics.empty())
+		{
+			QJsonArray pages = ata_device_statistics["pages"].toArray();
+			for (const QJsonValue &pageval : std::as_const(pages))
+			{
+				QJsonObject page = pageval.toObject();
+				if (page["name"] == "General Statistics")
+				{
+					QJsonArray general_statistics = page["table"].toArray();
+					for (const QJsonValue &stat : std::as_const(general_statistics))
+					{
+						QJsonObject statObj = stat.toObject();
+						QString key = statObj["name"].toString();
+						QJsonValue value = statObj["value"];
+						
+						if (key == "Logical Sectors Read") {
+							double logicalSectorsRead = value.toDouble();
+							double megabytes = logicalSectorsRead * logicalBlockSize / 1e6;
+							totalMbReadsI64 = static_cast<int64_t>(megabytes);
+						} else if (key == "Logical Sectors Written") {
+							double logicalSectorsWritten = value.toDouble();
+							double megabytes = logicalSectorsWritten * logicalBlockSize / 1e6;
+							totalMbWritesI64 = static_cast<int64_t>(megabytes);
+						}
+					}
+					break; // no need looking into other pages
+				}
+			}
+		}
+		
         if (percentage.isEmpty() && rotationRate == "---- (SSD)") { // Workaround for some drives which have this and another attribute
             for (const QJsonValue &attr : std::as_const(attributes)) {
                 QJsonObject attrObj = attr.toObject();
@@ -682,14 +722,15 @@ void MainWindow::populateWindow(const QJsonObject &localObj, const QString &heal
         for (auto smartItem = nvmeLog.begin(); smartItem != nvmeLog.end(); ++smartItem) {
             QString key = smartItem.key();
             QJsonValue value = smartItem.value();
+            // it appears that NVME drives report data_units as logical_block_size*1000 bytes
             if (key == "data_units_written") {
                 double dataUnitsWritten = value.toDouble();
-                double gigabytes = (dataUnitsWritten * 512) / 1'000'000;
-                totalWritesInt = static_cast<int>(gigabytes);
+                double megabytes = (dataUnitsWritten * logicalBlockSize) / 1000;
+                totalMbWritesI64 = static_cast<int64_t>(megabytes);
             } else if (key == "data_units_read") {
                 double dataUnitsRead = value.toDouble();
-                double gigabytes = (dataUnitsRead * 512) / 1'000'000;
-                totalReadsInt = static_cast<int>(gigabytes);
+                double megabytes = (dataUnitsRead * logicalBlockSize) / 1000;
+                totalMbReadsI64 = static_cast<int64_t>(megabytes);
             } else if (key == "percentage_used") {
                 int percentageUsed = 100 - value.toInt();
                 percentage = QString::number(percentageUsed) + " %";
@@ -697,25 +738,8 @@ void MainWindow::populateWindow(const QJsonObject &localObj, const QString &heal
         }
     }
 
-    if (totalReadsInt) {
-        if (totalReadsInt < 1000 || useGB) {
-            totalReads = QString::number(totalReadsInt) + " " + gbSymbol;
-        } else {
-            totalReads = QString::number(totalReadsInt/1000.0, 'f', 1) + " " + tbSymbol;
-        }
-    } else {
-        totalReads = "----";
-    }
-
-    if (totalWritesInt) {
-        if (totalWritesInt < 1000 || useGB) {
-            totalWrites = QString::number(totalWritesInt) + " " + gbSymbol;
-        } else {
-            totalWrites = QString::number(totalWritesInt/1000.0, 'f', 1) + " " + tbSymbol;
-        }
-    } else {
-        totalWrites = "----";
-    }
+    totalReads = getMbToPrettyString(totalMbReadsI64, PRECISION_TOTALS_TO_STR, useGB);
+    totalWrites = getMbToPrettyString(totalMbWritesI64, PRECISION_TOTALS_TO_STR, useGB);
 
     totalReadsLineEdit->setText(totalReads);
     totalReadsLineEdit->setAlignment(Qt::AlignRight);
@@ -1480,3 +1504,18 @@ void MainWindow::on_actionSave_Image_triggered()
     screenshot.save(QFileDialog::getSaveFileName(this, tr("Save Image"), "QDiskInfo_" + deviceNodeLineEdit->text().section('/', -1) + ".png", tr("PNG Files (*.png)")));
 }
 
+QString MainWindow::getMbToPrettyString(const int64_t &sizeInMbI64, const int &precisionInt, const bool &useGbBool) const
+{
+    if (!sizeInMbI64)
+        return "----";
+
+    int precision = precisionInt ? (useGbBool ? 1 : precisionInt) : 0;
+    double sizeInMB = double(sizeInMbI64);
+    if (sizeInMbI64 < 1000)
+        return QString::number(sizeInMbI64) + " " + mbSymbol;
+    else if (sizeInMbI64 < 1000000 || useGbBool)
+        return QString::number(sizeInMB/1e3, 'f', precision) + " " + gbSymbol;
+    else if (sizeInMbI64 < 1000000000)
+        return QString::number(sizeInMB/1e6, 'f', precision) + " " + tbSymbol;
+    return QString::number(sizeInMB/1e9, 'f', precision) + " " + pbSymbol;
+}

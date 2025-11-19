@@ -95,4 +95,11 @@ private:
     void addSmartAttributesTable(const QJsonArray &attributes);
     void transformWindow();
     void mousePressEvent(QMouseEvent*);
+
+private:
+    QString mbSymbol;
+    QString gbSymbol;
+    QString tbSymbol;
+    QString pbSymbol;
+    QString getMbToPrettyString(const int64_t &sizeInMbI64, const int &precisionInt, const bool &useGbBool) const;
 };

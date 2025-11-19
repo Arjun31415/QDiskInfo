@@ -99,7 +99,7 @@ QPair<QStringList, QJsonArray> utils::scanDevices(bool initializing)
     for (const QJsonValue &value : std::as_const(devices)) {
         QJsonObject device = value.toObject();
         QString deviceName = device["name"].toString();
-        commandList.append((smartctlPath + " --all --json=o %1").arg(deviceName));
+        commandList.append((smartctlPath + " -x --json=o %1").arg(deviceName));
     }
     QString command = commandList.join(" ; ");
 
@@ -139,7 +139,7 @@ QString utils::initiateSelfTest(const QString &testType, const QString &deviceNo
     QProcess process;
     QString command = getSmartctlPath();
     QStringList arguments;
-    arguments << command << "--json=o" << "-t" << testType << deviceNode;
+    arguments << command << "--json=o" << "-x" << "-t" << testType << deviceNode;
 
     process.start("pkexec", arguments);
     process.waitForFinished(-1);
