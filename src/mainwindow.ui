@@ -490,7 +490,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>30</height>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -498,6 +498,7 @@
      <string>File</string>
     </property>
     <addaction name="actionSave_JSON"/>
+    <addaction name="actionSave_Image"/>
     <addaction name="actionQuit"/>
    </widget>
    <widget class="QMenu" name="menuSettings">
@@ -509,6 +510,8 @@
     <addaction name="actionUse_Fahrenheit"/>
     <addaction name="actionCyclic_Navigation"/>
     <addaction name="actionUse_GB_instead_of_TB"/>
+    <addaction name="separator"/>
+    <addaction name="actionClear_Settings"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -525,11 +528,15 @@
     </property>
     <addaction name="actionRescan_Refresh"/>
     <addaction name="separator"/>
+    <addaction name="actionASCII_View"/>
+    <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="menuDisk">
     <property name="title">
      <string>Disk</string>
     </property>
+    <addaction name="actionGrid_View"/>
+    <addaction name="separator"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuDevice"/>
@@ -542,7 +549,10 @@
     <iconset theme="document-save"/>
    </property>
    <property name="text">
-    <string>&amp;Save JSON</string>
+    <string>&amp;Save (JSON)</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+T</string>
    </property>
   </action>
   <action name="actionQuit">
@@ -635,6 +645,35 @@
    </property>
    <property name="text">
     <string>About &amp;Qt</string>
+   </property>
+  </action>
+  <action name="actionClear_Settings">
+   <property name="text">
+    <string>Clear &amp;Settings</string>
+   </property>
+  </action>
+  <action name="actionASCII_View">
+   <property name="text">
+    <string>ASCII View</string>
+   </property>
+  </action>
+  <action name="actionGrid_View">
+   <property name="icon">
+    <iconset theme="start-here"/>
+   </property>
+   <property name="text">
+    <string>Grid View</string>
+   </property>
+  </action>
+  <action name="actionSave_Image">
+   <property name="icon">
+    <iconset theme="image-x-generic"/>
+   </property>
+   <property name="text">
+    <string>Save (Image)</string>
+   </property>
+   <property name="shortcut">
+    <string/>
    </property>
   </action>
  </widget>

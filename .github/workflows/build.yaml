@@ -3,80 +3,73 @@ name: Build
 on:
   push:
     branches:
-    - main
+      - main
     paths-ignore:
-    - '**.md'
+      - "**.md"
   pull_request:
   workflow_dispatch:
 
 jobs:
-  build-unix:
+  build:
+    permissions:
+      actions: read
+      security-events: write
+      contents: write
+    runs-on: ${{ matrix.runs-on }}
     strategy:
-      fail-fast: false       
       matrix:
-        clib: [glibc, musl]
         include:
-          - clib: glibc
-            os: ubuntu-24.04
-          - clib: musl
-            os: ubuntu-latest
-            container: alpine:latest
-    runs-on: ${{ matrix.os }}
+          - arch: aarch64
+            platform: linux/arm64
+            runs-on: ubuntu-24.04-arm
+          - arch: x86_64
+            platform: linux/amd64
+            runs-on: ubuntu-24.04
     container:
-      image: ${{ matrix.container }}
-      
+      image: ghcr.io/pkgforge-dev/archlinux:latest
+
     steps:
-    - uses: actions/checkout@v4
-    - name: Install dependencies for glibc
-      run: |
-        sudo apt update
-        sudo apt install -y qt6-base-dev qt6-tools-dev qt6-svg-dev libgl1-mesa-dev libxkbcommon-dev libvulkan-dev qmake6 smartmontools qt6ct patchelf
-      if: ${{ matrix.clib == 'glibc' }}
-    - name: Install dependencies for musl
-      run: |
-        apk add git cmake make gcc g++ curl gcompat qt6-qtbase-dev qt6-qttools-dev qt6-qtbase-x11 qt6-qtsvg breeze smartmontools
-        git config --global --add safe.directory '*'
-      if: ${{ matrix.clib == 'musl' }}
-      
-    - name: Build
-      run: |
-        cmake -Bbuild -DCMAKE_BUILD_TYPE:STRING=MinSizeRel -DQT_VERSION_MAJOR=6 -DENABLE_TRANSLATIONS=ON
-        cmake --build build
+      - uses: actions/checkout@v4
 
-    - name: Package AppImage
-      run: |
-        export APPIMAGE_EXTRACT_AND_RUN=1 ARCH=x86_64 VERSION=anylinux
-        curl -sSfL "https://github.com/probonopd/go-appimage/releases/download/832/appimagetool-823-x86_64.AppImage" -o appimagetool-static.AppImage
-        chmod a+x *.AppImage
-        chmod a+x .github/scripts/smartctl
-         
-        mkdir -p AppDir/usr/bin/../share/applications
-        cp build/QDiskInfo AppDir/usr/bin/
-        cp dist/QDiskInfo.desktop AppDir/usr/share/applications
-        cp dist/QDiskInfo.svg AppDir/QDiskInfo.svg
-        
-        ./appimagetool-static.AppImage -s deploy AppDir/usr/share/applications/*.desktop
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm \
+            base-devel     \
+            breeze         \
+            clang          \
+            cmake          \
+            libxkbcommon   \
+            mesa           \
+            patchelf       \
+            qt6-base       \
+            qt6ct          \
+            qt6-svg        \
+            qt6-tools      \
+            smartmontools  \
+            vulkan-devel   \
+            wget
 
-        # deploy qt6ct
-        mkdir -p ./AppDir/usr/lib/x86_64-linux-gnu/qt6/plugins/platformthemes/../styles
-        cp -v /usr/lib/x86_64-linux-gnu/qt6/plugins/platformthemes/libqt6ct.so ./AppDir/usr/lib/x86_64-linux-gnu/qt6/plugins/platformthemes
-        cp -v /usr/lib/x86_64-linux-gnu/qt6/plugins/styles/libqt6ct-style.so ./AppDir/usr/lib/x86_64-linux-gnu/qt6/plugins/styles
-        cp -v /usr/lib/x86_64-linux-gnu/libqt6ct* ./AppDir/lib/x86_64-linux-gnu
+      - name: Build
+        run: |
+          cmake -Bbuild -DCMAKE_BUILD_TYPE:STRING=MinSizeRel -DQT_VERSION_MAJOR=6 -DENABLE_TRANSLATIONS=ON
+          cmake --build build
 
-        # HACK
-        patchelf --set-rpath '$ORIGIN/../../../../../bin:$ORIGIN/../../../../../lib64:$ORIGIN/../../../../../../lib64:$ORIGIN/../../../..:$ORIGIN/../../../../../../lib:$ORIGIN/../../../libfakeroot:$ORIGIN/../../../../../local/lib:$ORIGIN/../../../../../local/lib/x86_64-linux-gnu:$ORIGIN/../../../../../../lib/x86_64-linux-gnu:$ORIGIN/../../..:$ORIGIN/../../../../../../lib32:$ORIGIN/../../../../../lib32:$ORIGIN/../../../../../../lib/x86_64-linux-gnu/gconv:$ORIGIN/.:$ORIGIN/../iconengines:$ORIGIN/../imageformats:$ORIGIN/../xcbglintegrations' ./AppDir/usr/lib/x86_64-linux-gnu/qt6/plugins/platformthemes/* ./AppDir/usr/lib/x86_64-linux-gnu/qt6/plugins/styles/* ./AppDir/lib/x86_64-linux-gnu/libqt6ct*
+      - name: Package AppImage
+        run: |
+          chmod +x ./qdiskinfo-appimage.sh
+          ./qdiskinfo-appimage.sh
 
-        ./appimagetool-static.AppImage AppDir
+      - name: List Files
+        run: ls
 
-    - name: Upload AppImage
-      uses: actions/upload-artifact@v4
-      with:
-        name: QDiskInfo-anylinux-AppImage
-        path: ./QDiskInfo*.AppImage
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: QDiskInfo-${{ matrix.arch }}-AppImage
+          path: ./QDiskInfo*.AppImage*
 
-    - name: Upload Binaries
-      uses: actions/upload-artifact@v4
-      with:
-        name: QDiskInfo-Qt6-${{ matrix.clib }}-bin
-        path: ./build/QDiskInfo
-        
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: QDiskInfo-Qt6-${{ matrix.arch }}-bin
+          path: ./build/QDiskInfo

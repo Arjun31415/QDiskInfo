@@ -7,16 +7,14 @@ The icon is a modified version of the KDE Partition Manager logo which is availa
 [![Packaging status](https://repology.org/badge/vertical-allrepos/qdiskinfo.svg)](https://repology.org/project/qdiskinfo/versions)
 <br>Other than those mentioned in the widget above, there is also:
  - A [Fedora Copr Repository](https://copr.fedorainfracloud.org/coprs/birkch/QDiskInfo)
- - A [Gentoo Portage Overlay](http://gpo.zugaina.org/sys-apps/qdiskinfo)
  - A Flatpak is currently <span style="color:red">NOT</span> possible due to a [permission issue](https://github.com/flatpak/flatpak/issues/2452)
- - AppImages which include smartctl can be downloaded [here](https://github.com/edisionnano/QDiskInfo/actions) if you are logged in with a GitHub account, you need to run them using sudo/doas/run0 currently. See [here](https://github.com/edisionnano/QDiskInfo/issues/5) for AppImage issues.
- - Binaries that work on every distro can be found [here](https://github.com/edisionnano/QDiskInfo/releases/latest)
+ - Binaries and Appimages that work on every distro can be found [here](https://github.com/edisionnano/QDiskInfo/releases/latest)
 
 ## Compiling and Installing
 ### Compilation and Runtime Dependencies
 Debian and Debian-based distros (Ubuntu, Mint, Pop!_OS, etc.)
 ```sh
-sudo apt install build-essential cmake git libgl1-mesa-dev libxkbcommon-dev qt6-base-dev qt6-tools-dev qt6-wayland smartmontools
+sudo apt install build-essential cmake git libgl1-mesa-dev libxkbcommon-dev qt6-base-dev qt6-tools-dev qt6-tools-dev-tools qt6-wayland smartmontools
 ```
 Fedora and derivatives (Nobara Project, etc.)
 ```sh
@@ -71,11 +69,12 @@ You can translate QDiskInfo to your language very easily using [Crowdin](https:/
 ```sh
 LC_ALL=de_DE.UTF-8 ./QDiskInfo
 ```
-to force the app to use the language of your choice.
-<br>If changes were made to the original strings you can use the `lupdate` command to update the .ts files, for example to update the German translation file you would run
+to force the app to use the language of your choice.<br>
+<br>If changes were made to the original strings and your Qt version is <6.7 you can use the `lupdate` command to update the .ts files, for example to update the German translation file from the project's root you would run
 ```sh
-lupdate src/ -ts translations/qdiskinfo_de_DE.ts -noobsolete
+lupdate . -ts translations/qdiskinfo_de_DE.ts -noobsolete
 ```
+For Qt >=6.7 this is done automatically when running `make`.
 
 ## Common Issues
 ### Icons are Missing

@@ -9,9 +9,12 @@
 #include <QProcess>
 #include <QPushButton>
 #include <QTimer>
+#include <qactiongroup.h>
 
-void utils::clearButtonGroup(QButtonGroup* buttonGroup, QHBoxLayout* horizontalLayout, QSpacerItem* buttonStretch, QMenu* menuDisk)
+QString utils::clearButtonGroup(QButtonGroup* buttonGroup, QHBoxLayout* horizontalLayout, QSpacerItem* buttonStretch, QMenu* menuDisk)
 {
+    QString currentDeviceName = buttonGroup->checkedButton()->property("deviceName").toString();
+
     QList<QAbstractButton*> buttons = buttonGroup->buttons();
     for (QAbstractButton* button : std::as_const(buttons)) {
         buttonGroup->removeButton(button);
@@ -19,7 +22,21 @@ void utils::clearButtonGroup(QButtonGroup* buttonGroup, QHBoxLayout* horizontalL
     }
     horizontalLayout->removeItem(buttonStretch);
     delete buttonStretch;
-    menuDisk->clear();
+
+    // Dirty hack to remove only the radio buttons
+    QList<QAction*> actions = menuDisk->actions();
+    bool foundSeparator = false;
+
+    for (int i = 0; i < actions.size(); ++i) {
+        QAction* action = actions[i];
+        if (foundSeparator) {
+            menuDisk->removeAction(action);
+        } else if (action->isSeparator()) {
+            foundSeparator = true;
+        }
+    }
+
+    return currentDeviceName;
 }
 
 QString utils::getSmartctlPath() {
@@ -82,7 +99,7 @@ QPair<QStringList, QJsonArray> utils::scanDevices(bool initializing)
     for (const QJsonValue &value : std::as_const(devices)) {
         QJsonObject device = value.toObject();
         QString deviceName = device["name"].toString();
-        commandList.append((smartctlPath + " --all --json=o %1").arg(deviceName));
+        commandList.append((smartctlPath + " -x --json=o %1").arg(deviceName));
     }
     QString command = commandList.join(" ; ");
 
@@ -98,15 +115,15 @@ QPair<QStringList, QJsonArray> utils::scanDevices(bool initializing)
 
     static const QRegularExpression regex("\\}\\n\\{");
 
-    while ((endIndex = allDevicesOutput.indexOf(regex, startIndex)) != -1) {
+    while ((endIndex = allDevicesOutput.indexOf(regex, static_cast<int>(startIndex))) != -1) {
         ++endIndex;
-        QString jsonFragment = allDevicesOutput.mid(startIndex, endIndex - startIndex);
+        QString jsonFragment = allDevicesOutput.mid(static_cast<int>(startIndex), static_cast<int>(endIndex - startIndex));
         deviceOutputs.append(jsonFragment);
         startIndex = endIndex;
     }
 
     if (startIndex < allDevicesOutput.size()) {
-        QString jsonFragment = allDevicesOutput.mid(startIndex);
+        QString jsonFragment = allDevicesOutput.mid(static_cast<int>(startIndex));
         deviceOutputs.append(jsonFragment);
     }
 
@@ -122,7 +139,7 @@ QString utils::initiateSelfTest(const QString &testType, const QString &deviceNo
     QProcess process;
     QString command = getSmartctlPath();
     QStringList arguments;
-    arguments << command << "--json=o" << "-t" << testType << deviceNode;
+    arguments << command << "--json=o" << "-x" << "-t" << testType << deviceNode;
 
     process.start("pkexec", arguments);
     process.waitForFinished(-1);
